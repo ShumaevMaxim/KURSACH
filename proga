@@ -1,0 +1,178 @@
+#include <SFML/Graphics.hpp>
+#include <windows.h>
+#include <iostream>
+#include <cstdlib>
+#include <vector>
+#include <ctime>
+
+
+using namespace std;
+//––––––––––––––––––––ГЛОБАЛЬНЫЕ КОНСТАНТЫ–––––––––––––––––––
+const int CELL_SIZE = 5; //РАЗМЕР КЛЕТКИ
+const int GRID_WIDTH = 140; //ШИРИНА РЕШЕТКИ (В КЛЕТКАХ)
+const int GRID_HEIGHT = 200; //ВЫСОТА РЕШЕТКИ (В КЛЕТКАХ)
+const int WINDOW_WIDTH = GRID_WIDTH * CELL_SIZE; //ШИРИНА ОКНА ВЫВОДА
+const int WINDOW_HEIGHT = GRID_HEIGHT * CELL_SIZE; //ВЫСОТА ОКНА ВЫВОДА
+
+//СОСТОЯНИЯ КЛЕТОЧНОГО АВТОМАТА
+enum CellType {
+    EMPTY,
+    OBSTACLE,
+    LIQUID
+};
+
+struct Cell {
+    CellType type;
+    sf::RectangleShape shape;
+};
+
+vector<vector<Cell>> grid(GRID_HEIGHT, vector<Cell>(GRID_WIDTH));
+//–––––––––––––––––––ПРОЦЕДУРЫ––––––––––––––––––––––
+
+//СОЗДАНИЕ ПУСТОЙ КЛЕТОЧНОЙ РЕШЁТКИ
+void initializeGrid() {
+    for (int i = 0; i < GRID_HEIGHT; ++i) {
+        for (int j = 0; j < GRID_WIDTH; ++j) {
+            grid[i][j].type = EMPTY;
+            grid[i][j].shape.setSize(sf::Vector2f(CELL_SIZE, CELL_SIZE));
+            grid[i][j].shape.setPosition(j * CELL_SIZE, i * CELL_SIZE);
+        }
+    }
+}
+
+//CОЗДАНИЕ ПОРИСТОГО МАТЕРИАЛА
+void placeObstacles(int kol) {
+    //srand(time(NULL));
+    for (int i = kol+2; i < GRID_HEIGHT; ++i) {
+        for (int j = 0; j < GRID_WIDTH; ++j) {
+            if (rand() % 3 == 1) {
+                grid[i][j].type = OBSTACLE;
+                grid[i][j].shape.setFillColor(sf::Color::Black);
+            }
+
+            //СТЕНКИ 
+            grid[i][0].type = OBSTACLE;
+            grid[i][0].shape.setFillColor(sf::Color::Black);
+            grid[i][GRID_WIDTH - 1].type = OBSTACLE;
+            grid[i][GRID_WIDTH - 1].shape.setFillColor(sf::Color::Black);
+            grid[GRID_HEIGHT - 1][j].type = OBSTACLE;
+            grid[GRID_HEIGHT - 1][j].shape.setFillColor(sf::Color::Black);
+
+        }
+    }
+}
+
+//ОБНОВЛЕНИЕ СОСТОЯНИЙ КЛЕТОК
+void updateLiquid(double k, int kol) {
+    int k1 = k / k / k;
+    srand(time(NULL));
+    for (int i = GRID_HEIGHT - 1; i >= 0; --i) {
+        for (int j = 0; j < GRID_WIDTH; ++j) {
+            if (grid[i][j].type == LIQUID) {
+                if (grid[i + 1][j].type == EMPTY) {
+                    grid[i][j].type = EMPTY;
+                    grid[i + 1][j].type = LIQUID;
+                    grid[i + 1][j].shape.setFillColor(sf::Color(0, 180, 255));
+                    grid[i][j].shape.setFillColor(sf::Color::White);
+                }
+                else if (grid[i + 1][j].type == OBSTACLE || grid[i + 1][j].type == LIQUID) {
+                    if (rand() % k1 == 0 && j > 0 && grid[i][j - 1].type == EMPTY) {
+                        grid[i][j].type = EMPTY;
+                        grid[i][j - 1].type = LIQUID;
+                        grid[i][j - 1].shape.setFillColor(sf::Color(0, 180, 255));
+                        grid[i][j].shape.setFillColor(sf::Color::White);
+                    }
+                    else if (j < GRID_WIDTH - 1 && grid[i][j + 1].type == EMPTY) {
+                        grid[i][j].type = EMPTY;
+                        grid[i][j + 1].type = LIQUID;
+                        grid[i][j + 1].shape.setFillColor(sf::Color(0, 180, 255));
+                        grid[i][j].shape.setFillColor(sf::Color::White);
+                    }
+                }
+
+
+                for (int t = 1; t <= kol+10; t++) {
+                    if (i - t >= 0 && grid[i - t][j].type == LIQUID) {
+                        if (rand() % k1 == 0 && j > 0 && grid[i - t][j - 1].type == EMPTY) {
+                            grid[i - t][j].type = EMPTY;
+                            grid[i - t][j - 1].type = LIQUID;
+                            grid[i - t][j - 1].shape.setFillColor(sf::Color(0, 180, 255));
+                            grid[i - t][j].shape.setFillColor(sf::Color::White);
+                        }
+                        else if (j < GRID_WIDTH - 1 && grid[i - t][j + 1].type == EMPTY) {
+                            grid[i - t][j].type = EMPTY;
+                            grid[i - t][j + 1].type = LIQUID;
+                            grid[i - t][j + 1].shape.setFillColor(sf::Color(0, 180, 255));
+                            grid[i - t][j].shape.setFillColor(sf::Color::White);
+                        }
+                    }
+                }
+
+
+            }
+        }
+    }
+}
+
+//ЗАПОЛНЕНИЕ ОКНА
+void drawGrid(sf::RenderWindow& window) {
+    for (int i = 0; i < GRID_HEIGHT; ++i) {
+        for (int j = 0; j < GRID_WIDTH; ++j) {
+            window.draw(grid[i][j].shape);
+        }
+    }
+}
+
+void SetConsolePosition(int x, int y) {
+    HWND console = GetConsoleWindow();
+    SetWindowPos(console, 0, x, y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+}
+
+void SetConsoleWindowSize(int width, int height) {
+    HWND console = GetConsoleWindow();
+    RECT rect;
+    GetWindowRect(console, &rect);
+    MoveWindow(console, rect.left, rect.top, width, height, TRUE);
+}
+
+int main() {
+    SetConsoleWindowSize(300, 700);
+    SetConsolePosition(1100, 100);
+
+    sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Liquid Simulation");
+    int kolliquid;
+    int kount = 0;
+    double prob = 0.5;
+
+
+    initializeGrid();
+    cout << "kolliquid = ";
+    cin >> kolliquid;
+    placeObstacles(kolliquid);
+
+
+    //ДОБАВЛЕНИЕ ЖИДКОСТИ
+    for (int i = 0; i < kolliquid; ++i) {
+        for (int j = 0; j < GRID_WIDTH; ++j) {
+            grid[i][j].type = LIQUID;
+            grid[i][j].shape.setFillColor(sf::Color(0, 180, 255));
+        }
+    }
+
+
+    while (window.isOpen()) {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed) {
+                window.close();
+            }
+        }
+        updateLiquid(prob, kolliquid);
+        kount++;
+        window.clear(sf::Color::White);
+        drawGrid(window);
+        window.display();
+        cout << kount << endl;
+    }
+    return 0;
+}
